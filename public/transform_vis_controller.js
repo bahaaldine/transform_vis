@@ -6,8 +6,9 @@ const Mustache = require('mustache')
 const module = uiModules.get('kibana/transform_vis', ['kibana']);
 
 require('plugins/transform_vis/directives/refresh_hack');
+require('plugins/transform_vis/directives/chart_functions/chart');
 
-module.controller('TransformVisController', function ($scope, $sce, Private, timefilter, es, config, indexPatterns) {
+module.controller('TransformVisController', function ($scope, $sce, Private, timefilter, es, config, indexPatterns, responseService) {
 
     const queryFilter = Private(require('ui/filter_bar/query_filter'));
     const dashboardContext = Private(require('plugins/timelion/services/dashboard_context'));
@@ -15,11 +16,11 @@ module.controller('TransformVisController', function ($scope, $sce, Private, tim
     $scope.options = chrome.getInjected('transformVisOptions');
 
     $scope.applyHTML = function() {
-         if ($scope.options.allow_unsafe) {
-	 	return $sce.trustAsHtml($scope.vis.display);
-	} else {
-		return $scope.vis.display;
-	}
+      if ($scope.options.allow_unsafe) {
+			 	return $sce.trustAsHtml($scope.vis.display);
+			} else {
+				return $scope.vis.display;
+			}
     }
      
     $scope.refreshConfig = function() {
@@ -61,6 +62,7 @@ module.controller('TransformVisController', function ($scope, $sce, Private, tim
 		 $scope.setDisplay("Error (See Console)");
 		 console.log("Elasticsearch Query Error", error);
 		} else {
+			responseService.setResponse(response);
 		  var bindme = {};
 		  bindme.context = context;
 		  bindme.response = response;

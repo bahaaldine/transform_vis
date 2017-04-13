@@ -23,6 +23,7 @@
     "eslint-plugin-mocha": "1.1.0"
   },
   "dependencies": {
+    "echarts": "^3.5.2",
     "mustache": "2.3.0"
   }
 }
