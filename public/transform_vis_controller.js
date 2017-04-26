@@ -17,8 +17,7 @@ module.controller('TransformVisController', function ($scope, $sce, Private, tim
       const safer = new SaferEval();
       var code = "{d: new Date('1970-01-01'), b: new Buffer('data')}"
       var res = safer.runInContext(code)
-      console.log(res)
-			//pluginService.setPlugin(fn.name, saferEval(fn.func), saferEval(fn.deps));
+			pluginService.setPlugin(fn.name, saferEval(fn.func), saferEval(fn.deps));
 		});
 	});
 
