@@ -23,8 +23,8 @@ export default function (kibana) {
         enabled: Joi.boolean().default(true),
         allow_unsafe: Joi.boolean().default(false)
       }).default();
-    },
+    }
 
-
+    ,init: require('./init.js')
   });
 };

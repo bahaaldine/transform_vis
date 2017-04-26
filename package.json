@@ -24,6 +24,9 @@
   },
   "dependencies": {
     "echarts": "^3.5.2",
-    "mustache": "2.3.0"
+    "mustache": "2.3.0",
+    "requirejs": "^2.3.3",
+    "safer-eval": "^1.2.2",
+    "serialize-to-js": "^1.1.1"
   }
 }

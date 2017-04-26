@@ -1,29 +1,41 @@
+const {SaferEval} = require('safer-eval')
 import _ from 'lodash';
 import AggResponseTabifyTabifyProvider from 'ui/agg_response/tabify/tabify';
 import uiModules from 'ui/modules';
 import chrome from 'ui/chrome';
+const deserialize = require('serialize-to-js').deserialize;
 const Mustache = require('mustache')
 const module = uiModules.get('kibana/transform_vis', ['kibana']);
 
+require('plugins/transform_vis/common/api');
 require('plugins/transform_vis/directives/refresh_hack');
-require('plugins/transform_vis/directives/chart_functions/chart');
 
-module.controller('TransformVisController', function ($scope, $sce, Private, timefilter, es, config, indexPatterns, responseService) {
+module.controller('TransformVisController', function ($scope, $sce, Private, timefilter, es, config, indexPatterns, responseService, transformApiService, pluginService) {
 
-    const queryFilter = Private(require('ui/filter_bar/query_filter'));
-    const dashboardContext = Private(require('plugins/timelion/services/dashboard_context'));
-     
-    $scope.options = chrome.getInjected('transformVisOptions');
+	transformApiService.getFunctions().then( response => {
+    _.forEach( response.data, fn => {
+      const safer = new SaferEval();
+      var code = "{d: new Date('1970-01-01'), b: new Buffer('data')}"
+      var res = safer.runInContext(code)
+      console.log(res)
+			//pluginService.setPlugin(fn.name, saferEval(fn.func), saferEval(fn.deps));
+		});
+	});
 
-    $scope.applyHTML = function() {
-      if ($scope.options.allow_unsafe) {
-			 	return $sce.trustAsHtml($scope.vis.display);
-			} else {
-				return $scope.vis.display;
-			}
-    }
-     
-    $scope.refreshConfig = function() {
+  const queryFilter = Private(require('ui/filter_bar/query_filter'));
+  const dashboardContext = Private(require('plugins/timelion/services/dashboard_context'));
+   
+  $scope.options = chrome.getInjected('transformVisOptions');
+
+  $scope.applyHTML = function() {
+    if ($scope.options.allow_unsafe) {
+		 	return $sce.trustAsHtml($scope.vis.display);
+		} else {
+			return $scope.vis.display;
+		}
+  }
+   
+  $scope.refreshConfig = function() {
 
 	indexPatterns.get($scope.vis.params.outputs.indexpattern).then( function (indexPattern) {
 		$scope.vis.indexPattern = indexPattern;
@@ -52,7 +64,7 @@ module.controller('TransformVisController', function ($scope, $sce, Private, tim
 	 context.bool.must.push(timefilterdsl);
 	}
 	
-        var body = JSON.parse( $scope.vis.params.outputs.querydsl.replace("\"_DASHBOARD_CONTEXT_\"",JSON.stringify(context)) );
+  var body = JSON.parse( $scope.vis.params.outputs.querydsl.replace("\"_DASHBOARD_CONTEXT_\"",JSON.stringify(context)) );
 
 	es.search({
 		index: index,
@@ -125,3 +137,85 @@ module.controller('TransformVisEditorController', function ($scope, indexPattern
     });
 
 });
+
+module.service('responseService', function() {
+  this.response = {};
+
+  const setResponse = (response) => {
+    this.response = response; 
+  }
+
+  const getResponse = () => {
+    return this.response;
+  }
+
+  return {
+    setResponse: setResponse,
+    getResponse: getResponse
+  }
+});
+
+module.service('pluginService', ['transformApiService', '$q', function(transformApiService, $q) {
+  this.pluginsList = {};
+
+  const setPlugin = (name, fn, deps) => {
+    this.pluginsList[name] = this.pluginsList[name] || {};
+    this.pluginsList[name].fn = fn; 
+    this.pluginsList[name].deps = deps; 
+  }
+
+  const getPlugin = (name) => {
+    return this.pluginsList[name];
+  }
+
+  const getPlugins = () => {
+    return this.pluginsList;
+  }
+
+  const getDependency = (name, dep) => {
+    console.log(this.getPlugin(name).deps.dep)
+    return this.getPlugin(name).deps.dep;
+  }
+
+  return {
+    setPlugin: setPlugin,
+    getPlugin: getPlugin,
+    getPlugins: getPlugins,
+    getDependency: getDependency
+  }
+}])
+
+module.directive('compile', ['$compile', '$sce', ($compile, $sce) => {
+  const option = _.pick( chrome.getInjected('transformVisOptions'), 'allow_unsafe');
+  return function(scope, element, attrs) {
+    scope.$watch(
+      (scope) => {
+        return scope.$eval(attrs.compile);
+      },
+      (value) => {
+        if ( option.allow_unsafe ) element.html($sce.trustAsHtml(value));
+        element.html(value);
+        $compile(element.contents())(scope);
+      }
+    );
+  };
+}]);
+
+module.directive('load', [ 'pluginService', 'responseService', (pluginService, responseService) => {
+  return {
+    restrict: 'A',
+  	scope: {
+  		plugin: '@'
+  	},
+    link: function($scope, $element, attrs) {
+
+      $scope.$watch('plugin', plugin => {
+
+        const fn = pluginService.getPlugin(plugin);
+
+        fn($scope, $element, attrs, responseService, pluginService);
+
+    	}, true);
+    }
+  };
+}]);
